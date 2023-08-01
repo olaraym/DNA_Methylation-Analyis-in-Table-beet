@@ -1,0 +1,73 @@
+Using the Primrose and pb_CpG pipeline.
+Raw Pacbio Hifi read in BAM format was then filtered  to collect only double-stranded reads for further downstream processes using the line of code below; 
+samtools view -d "fi" -b TableBeet.Kinetics.CCS.hifi.bam > TableBeet.Kinetics.CCS.hifi.ds.bam
+
+Subsequently, I applied the Primrose software (Version 1.3.0) to the retrieved double-stranded Hifi read data to predict the 5mC probabilities from the respective kinetic information using the line of code below;
+primrose --min-passes 3 TKC_hifi.ds.bam TKC.hifi.ds.out.bam -j 20
+
+Next, the HiFi reads containing 5mC tags (provided in an unaligned BAM format) were aligned to a table beet reference using pbmm2 version 1.12.0 (Pacific Bioscience, 2023) Using the line of code below;
+pbmm2 align TB-assembly.posscaf.fa TKC.hifi.ds.out.bam TKC.hifi.ds.out.align.bam -j 30
+
+Then the indexed bam files were used to obtain Pileup scores for 5mC across CpG sites using the Pb_CpG_tool (version 2.3.1) with the line of code below;
+aligned_bam_to_cpg_scores -b hifi.sort.bam -f TB-assembly.posscaf.fa -o pb -p count -m reference -t 30
+
+Then, I collected methylation information from the first 9 scaffolds, which is known to contain the most important components of the table beet genome, with coverage of ≥ 4 and methylation probability ≥20% using the line of code below;
+awk '$1 ~ /^scaffold_[1-9]$/' pb.combined.reference.mincov4.bed | awk '$5>=20 && $6>=4' | awk	'{OFS="\t"} {print $1"\t"$2"\t"$3"\t"$4"\t"$6}' > mCG_pb1-9.bed
+
+Using the CCS_meth pipeline.
+The CCS_meth pipeline used in this study is based on a deep learning approach and was designed to detect methylation in the 5mCpG context from circular consensus sequences (Hifi reads), it uses an attention-based bidirectional Gated Recurrent Unit (GRU) networks to predict DNA methylation states of cytosine in Hifi reads (Peng N. et al., 2022). The approach also consisted of a series of steps which is detailed in Figure 7B. and in the following lines of codes below;
+I called the modification probabilities from the aligned PacBio reads using the code below
+ccsmeth call_mods --input hifi.pbmm2.bam --ref ../TB-assembly.posscaf.fa \
+--model_file model_ccsmeth_5mCpG_call_mods_attbigru2s_b21.v1.ckpt \
+--output ./new/cmod --threads 50 --threads_call 10 --model_type attbigru2s \
+--rm_per_readsite --mode align --modbam modbam --motif CG
+
+The modification frequency (probabilities) for the CG context methylation was extracted using the line of code below;
+ccsmeth call_freqt --input_path /path/to/cmod.per_redsite.tsv \ 
+	--result_file /path/to/new_CG_ccsmeth --bed –sort\ 
+	--prob_cf 0.0 --refsites_only \
+	--motifs CG --mod_loc 0 --ref /path/to/TB-assembly.posscaf.fa \
+	--contigs --threads 30
+Next, the command line function awk was then used for extracting and sorting the necessary columns and information, see the line of code below;
+awk '{OFS="\t"} {print $1"\t"$2"\t"$3"\t"$6"\t"$11"\t"$10}' new_CG_ccsmeth | awk '$4=="+"{print $1"\t"$2"\t"$3"\t"$4"\t"$5"\t"$6}$4=="-"{print $1"\t"$2-1"\t"$3-1"\t"$4"\t"$5"\t"$6}' | sort -u -k1,1 -k2,2n | awk '$6>=4' > mCG_ccs.bed
+
+EM_seq dataset analysis and methylation calling
+To analyze the EM-seq data, I utilized the Bisulfite Bolt (Bsbolt) pipeline. This pipeline is a Python-based program and was designed to utilize forked versions of Burrow Wheelers Alignment (BWA) for read alignment, and it engages the following steps of alignment, sorting, and indexing, and the actual methylation calling (Farrell et al., 2021). The full description of all the necessary steps is described in Figure 8 and the lines of codes below;
+1.	Quality check was first performed on the paired-end read using the Fastqc function in bash, then adaptors were removed using trim_galore in the line of code as; 
+trim_galore -j 30 -e 0.1 -q 20 -O 1 -a -illumina ../Em_seq/Em_seq_R1 ../Em_seq/Em_seq_R2
+2.	Indexing the reference genome
+python3 -m bsbolt Index -G /path/to/ TB-assembly.posscaf.fa -DB /path/to/output
+3.	Read alignment of the obtained trimmed Em_seq read fastq files to the indexed reference
+python3 -m bsbolt Align -DB path/to/DB_output -F1 input.fastq -F1 input.fastq -O ./output/Em_meth -t 20
+Note: After filtering and alignment of the reads to the reference genome, the mapped reads accounted for approximately 99x coverage of the genome.
+4.	Pre-processing of the aligned output file using default settings of samtools with options fixmate, sort, markdup, and index to prepare the reads for duplicate removal. The reads were sorted by coordinate, duplicates were removed and reads were indexed respectively. 
+5.	Then the methylation probabilities of cytosine position were called using the code below
+python3 -m bsbolt CallMethylation -I Em_dup.bam -O wgbs_out -DB ../path/to/DB_output -t 20 -verbose > Em_meth_stat
+
+Annotation description and genomic feature 5-methyl cytosine methylation detection
+Gene annotation used in this study was in-house curated by another Master’s student and I utilized only annotation on scaffolds 1 through 9 as these contain the most important gene and information that drives phenotypic expression in the table beet plant. The same goes for the repeat annotation which was used in this study. For further DNA methylation level and pattern analysis, I utilized the gene, exon, intron, CDS, transcription start and termination site, UTRs, and the repeat information from the annotation files. Then the number of methylated positions in each of these regions was assessed by overlapping the 5mC position in all three contexts (CG, CHG, CHH) with methylation probability of  ≥ 20%  as truly methylated cytosine called from the different approaches to the regions of the genomic features stated above. The overlapping was done using the line of command line below in bash
+bedtools intersect  -f -u 1.0 -a annotation.gff3 -b 5mC_positions.bed | wc -l
+
+Validating and analyzing DNA methylation patterns in characteristic table beet genes
+To determine the precise coding regions of the MYB1, CYP76AD1, and DODA1 genes within the table beet reference genome under investigation, relevant information pertaining to these genes and their sequences was extracted from UniProtKB. The primary accession names assigned to these genes according to UniProtKB were M1ETK3, I3PFJ5.1, and I3PFJ9.1, respectively. Subsequently, the annotated coding regions were acquired in-house through the following procedure: 
+               gffread annotation.gff3 -g TB-assembly.posscaf.fa -o output.gff -w exon.fa -x CDS.fa -y tr_CDS.fa
+Subsequently, a BLASTp search was conducted using the translated coding sequences by aligning them against the SwissProt database. The following line of code was used for this purpose:
+  	blastp -query tr_CDS.fa -db swissprot/swissprot -out gene_last.txt -outfmt 6 -num_threads 20
+The resulting alignment output was then subjected to sorting based on percentage identity, e-value, and bit score using the following lines of code:
+             export LC_ALL=C LC_LANG=C;sort -k1,1 -k12,12gr -k11,11g -k3,3gr gene_last.txt > glast_sort.out;
+The next line of code collects the best BLASTp result for each gene
+            for i in $(cut -f1 glast_sort.out|sort -u); do grep -w -m 1 "$i" gene_last.txt; done > glast_top1.txt.
+Then leveraging the accession name information obtained from UniProtKB, the corresponding gene names in the gene annotation file were identified. These aligned gene names to UniProtKB accession identifiers were used to search the annotation file containing coding sequence (CDS) information. This enabled the identification of the exact CDS sequences and their corresponding information for the target genes. Subsequently, these specific CDS sequences were extracted and subjected to a BLAST alignment against the sequences derived from UniProtKB using default settings, allowing for the determination of sequence similarity and identity values. Rz2 gene sequence information was obtained in-house (from other students).
+To investigate the DNA methylation patterns across all sequence contexts within the identified coding regions of the genes, I employed a comprehensive methodology. Firstly, I collected the reference genome-aligned BAM files derived from two sequencing approaches, along with their associated called methylation probability data, specifically obtained from the Primrose-Pb_CpG_tool and Bsbolt pipeline. The focus was primarily directed toward the CDS regions of genes of interest, determined by their precise start and end coordinates. Next, leveraging the available genome assembly information, I input the obtained methylation data with their corresponding annotation details into the IGV browser to observe and compare the DNA methylation patterns in these genes’ coding exons and regions upstream of the transcription start sites. 
+Performance evaluation of the methylation callers
+In order to comprehensively evaluate the performance of 5mC predictions from the two pipelines utilized in this study on the PacBio Hifi reads, I down-sampled the called methylation to at least 4X coverage based on the two sequencing technologies. Then I further filtered the detected cytosine methylated positions into three categories which are two representing fully methylated (consisting of positions with probabilities of ≥ 99% and ≥ 50 respectively) while the other category was for fully unmethylated (consisting of positions with probabilities of ≤ 1%). Furthermore, I devised a meticulous performance evaluation framework consisting of four performance metrics (Precision, Recall, F1-score, and Accuracy). Having conducted an in-depth analysis of the long-read sequencing dataset using two approaches, I compared the methylated CpG sites identified from these data using the methylated CpG data obtained from EM_Seq data. In this comparison, I assessed the precision, accuracy, recall, and F1 score as the performance metrics. 
+The methylated CG site data from the EM_Seq data obtained from the Bsbolt pipeline was used as a truth set to benchmark the performance of the two Pacbio Hifi read methylation detection pipelines used in this project. Based on the EM_seq data used as a truth set, a CpG position is defined to be fully methylated with high confidence if the methylation probability is ≥ 99% with a coverage of at least four (4) per read for 5mC probability prediction. However, because of the genome coverage of the Hifi reads used in this research, I set another methylation confidence at a methylation probability of ≥ 50% and a per-read coverage of ≥ 4.  In a similar manner, I defined a CpG position as unmethylated if the coverage was  ≥ 4 and the corresponding CpG locus had a methylation probability of ≤ 1%. To calculate these metrics, I employed the following formulas:
+•	Precision: The ratio of true positive predictions to the total predicted positives, indicating the proportion of correctly predicted 5mC sites.
+Precision = TP / (TP+FP)
+•	Accuracy: The ratio of true positive and true negative predictions to the total number of predictions, providing an overall measure of the correctness of the predictions.
+Accuracy = (TP + TN) / (TP + TN + FP + FN)
+•	Recall: The ratio of true positive predictions to the total actual positive sites, reflecting the ability of the pipeline to identify all relevant 5mC sites.
+Recall = TP / (TP + FN)
+•	F1 score: The harmonic mean of precision and recall, offering a balanced assessment of the overall performance by considering both precision and recall.
+F1 score = 2 × (Recall × Precision) / (Recall + Precision).
+
