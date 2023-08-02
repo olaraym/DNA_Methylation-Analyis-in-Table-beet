@@ -1,5 +1,5 @@
-Using the Primrose and pb_CpG pipeline.
-Raw Pacbio Hifi read in BAM format was then filtered  to collect only double-stranded reads for further downstream processes using the line of code below; 
+Using the Primrose and pb_CpG pipelines
+Raw Pacbio Hifi reads in BAM format were then filtered  to collect only double-stranded reads for further downstream processes using the line of code below; 
 samtools view -d "fi" -b TableBeet.Kinetics.CCS.hifi.bam > TableBeet.Kinetics.CCS.hifi.ds.bam
 
 Subsequently, I applied the Primrose software (Version 1.3.0) to the retrieved double-stranded Hifi read data to predict the 5mC probabilities from the respective kinetic information using the line of code below;
