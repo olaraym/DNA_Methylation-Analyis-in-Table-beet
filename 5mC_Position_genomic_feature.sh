@@ -30,9 +30,7 @@ export LC_ALL=C LC_LANG=C;sort -k1,1 -k12,12gr -k11,11g -k3,3gr gene_last.txt > 
 
 # Collection of the top 1 BLASTp result for each gene
 
-for i in $(cut -f1 glast_sort.out|sort -u); do 
-	grep -w -m 1 "$i" gene_last.txt; 
-done > glast_top1.txt.
+for i in $(cut -f1 glast_sort.out|sort -u); do grep -w -m 1 "$i" gene_last.txt; done > glast_top1.txt.
 
 # Then leveraging the accession name information obtained from UniProtKB, the corresponding gene names in the gene annotation file were identified. 
 # These aligned gene names to UniProtKB accession identifiers were used to search the annotation file containing coding sequence (CDS) information. 
