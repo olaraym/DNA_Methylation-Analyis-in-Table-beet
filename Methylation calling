@@ -1,3 +1,5 @@
+#!/usr/bin/bash
+
 ## Pacbio sequences and Enzymatic methyl sequences were obtained from ICB, BOKU.
 ## After these files where obtained, the Pacbio Seq was firts analysed using the procedure below:
 
