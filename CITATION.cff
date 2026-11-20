@@ -1,0 +1,40 @@
+cff-version: 1.2.0
+message: "If you use these scripts, please cite the article below."
+title: "DNA methylation analysis in table beet: PacBio HiFi and EM-seq pipelines"
+authors:
+  - family-names: Rasaki
+    given-names: Laide Abbas
+    orcid: "https://orcid.org/0000-0002-5594-6827"
+repository-code: "https://github.com/olaraym/DNA_Methylation-Analyis-in-Table-beet"
+license: MIT
+keywords:
+  - DNA methylation
+  - epigenomics
+  - PacBio HiFi
+  - EM-seq
+  - Beta vulgaris
+  - table beet
+preferred-citation:
+  type: article
+  title: "Genome and methylome of the root crop table beet (Beta vulgaris)"
+  authors:
+    - family-names: Holzweber
+      given-names: Thomas
+      orcid: "https://orcid.org/0000-0001-5544-4854"
+    - family-names: Dorn
+      given-names: Kevin M.
+      orcid: "https://orcid.org/0000-0003-2722-6221"
+    - family-names: Rasaki
+      given-names: Laide A.
+      orcid: "https://orcid.org/0000-0002-5594-6827"
+    - family-names: Dohm
+      given-names: Juliane C.
+      orcid: "https://orcid.org/0000-0001-5970-4457"
+    - family-names: Himmelbauer
+      given-names: Heinz
+      orcid: "https://orcid.org/0000-0001-8897-2928"
+  journal: "Scientific Reports"
+  year: 2026
+  date-published: 2026-10-27
+  doi: "10.1038/s41598-026-77397-6"
+  url: "https://doi.org/10.1038/s41598-026-77397-6"
