@@ -1,0 +1,32 @@
+# Sequencing data and large intermediates: deposit raw reads in ENA/SRA, not Git
+*.bam
+*.bai
+*.pbi
+*.cram
+*.fastq
+*.fastq.gz
+*.fq
+*.fq.gz
+*.fa
+*.fasta
+*.fai
+*.CGmap*
+*.per_readsite.tsv
+*.ckpt
+
+# Index / database folders
+bsbolt_index/
+swissprot/
+
+# Output folders
+results/
+ccsmeth_out/
+*_fastqc.*
+*_trimming_report.txt
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.Rhistory
+.RData
+.Rproj.user/
